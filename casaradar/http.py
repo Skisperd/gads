@@ -61,6 +61,11 @@ class Fetcher:
                 log.warning("erro de rede em %s (%s), tentativa %d", url, exc, attempt + 1)
                 time.sleep(2 ** attempt)
                 continue
+            if resp.status_code == 429 and attempt < self.retries:
+                wait = 8 * (attempt + 1)
+                log.warning("429 em %s; a esperar %ds antes de tentar de novo", url, wait)
+                time.sleep(wait)
+                continue
             if resp.status_code in (403, 429) or _looks_like_captcha(resp.text):
                 raise BlockedError(f"{url} -> HTTP {resp.status_code} (bloqueio anti-bot)")
             if resp.status_code >= 500:

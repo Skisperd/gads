@@ -81,16 +81,17 @@ são partilhados e alguns portais bloqueiam-nos; se vires `bloqueado` nos logs, 
 
 ## Fontes
 
-| fonte | estratégia | estado |
+| fonte | estratégia | verificado em 2026-10 |
 |---|---|---|
-| `imovirtual` | JSON `__NEXT_DATA__` da página, fallback HTML | ligado por defeito |
-| `casasapo` | HTML (`.property`), fallback JSON-LD e heurística | ligado por defeito |
-| `olx` | JSON `__PRERENDERED_STATE__`, fallback HTML (`l-card`) | ligado por defeito |
-| `supercasa` | HTML (`.property`), fallback JSON-LD e heurística | ligado por defeito |
-| `idealista` | HTML (`article.item`) | experimental: anti-bot agressivo, costuma dar 403 |
+| `imovirtual` | JSON `__NEXT_DATA__` da página, fallback HTML | ✅ funciona, inclusive a partir de IPs de datacenter (GitHub Actions) |
+| `casasapo` | HTML (`.property`), fallback JSON-LD e heurística | ✅ funciona; a partir de datacenter responde 429 com frequência (em casa deve ser estável) |
+| `olx` | JSON `__PRERENDERED_STATE__`, fallback HTML (`l-card`) | ⚠️ bloqueia IPs de datacenter (403); por confirmar a partir de casa, caminho de categoria pode precisar de `urls:` |
+| `supercasa` | HTML (`.property`), fallback JSON-LD e heurística | ⚠️ Cloudflare bloqueia datacenter (429); o URL construído devolveu 404, use `urls:` com o URL copiado do site |
+| `idealista` | HTML (`article.item`) | ❌ captcha (DataDome) mesmo no 1º pedido; só com browser real |
 
-Os parsers foram escritos a partir da estrutura conhecida de cada site e testados com fixtures
-em `tests/fixtures/`. Na primeira execução real confirma cada fonte com `debug-fetch`.
+A verificação acima foi feita com o workflow `verify-sources` (GitHub Actions), que podes correr a qualquer
+altura em *Actions → verify-sources → Run workflow* para ver o que cada parser extrai hoje.
+Na primeira execução em casa confirma as fontes com `debug-fetch`.
 
 ## Boas práticas
 

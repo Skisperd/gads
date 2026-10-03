@@ -51,6 +51,9 @@ jobs:
               for it in items[:2]:
                   print(json.dumps(it, ensure_ascii=False)[:2500]); print("---")
               print("roomsNumber:", [it.get("roomsNumber") for it in items])
+              for it in items[:4]:
+                  print("location:", json.dumps(it.get("location"), ensure_ascii=False)[:900])
+                  print("agency/private:", it.get("isPrivateOwner"), (it.get("agency") or {}).get("name") if isinstance(it.get("agency"), dict) else it.get("agency"))
               print("::endgroup::")
           for f in glob.glob("dumps/casasapo-*.html"):
               soup = BeautifulSoup(open(f, encoding="utf-8").read(), "lxml")
