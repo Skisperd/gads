@@ -3,6 +3,9 @@
 name: verify-sources
 on:
   workflow_dispatch:
+  push:
+    branches: [casaradar]
+    paths: ["casaradar/**", ".github/workflows/verify-sources.yml", "config.example.yaml"]
 jobs:
   verify:
     runs-on: ubuntu-latest
