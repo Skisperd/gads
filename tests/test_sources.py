@@ -121,3 +121,12 @@ def test_every_source_handles_garbage(name, search):
 def test_unknown_source():
     with pytest.raises(KeyError):
         get_source("zillow")
+
+
+def test_casasapo_unwraps_counter_redirect():
+    from casaradar.sources.casasapo import listing_id_from_url, unwrap_redirect
+    wrapped = "https://gespub.casa.sapo.pt/v3/webinterface/client/counter.aspx?c=1&p=1092826&s=0&l=https://casa.sapo.pt/alugar-apartamento-lisboa-b5014dd5-80c9-489c-8f53-e34227f501a3.html?g3pid=1092826"
+    assert unwrap_redirect(wrapped) == "https://casa.sapo.pt/alugar-apartamento-lisboa-b5014dd5-80c9-489c-8f53-e34227f501a3.html"
+    assert unwrap_redirect("https://casa.sapo.pt/x.html") == "https://casa.sapo.pt/x.html"
+    assert listing_id_from_url("https://casa.sapo.pt/alugar-apartamento-t2-lisboa-estrela-2b4ca11d-1c9a-11f1-a463-060000000052.html") == "2b4ca11d-1c9a-11f1-a463-060000000052"
+    assert listing_id_from_url("https://casa.sapo.pt/abc-100/") == "abc-100"

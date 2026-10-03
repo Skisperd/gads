@@ -8,7 +8,7 @@ Se o URL construído não devolver resultados, cole o URL da sua pesquisa em `ur
 from __future__ import annotations
 
 import re
-from urllib.parse import urlencode
+from urllib.parse import parse_qs, urlencode, urlsplit
 
 from bs4 import BeautifulSoup
 
@@ -57,14 +57,14 @@ class CasaSapoSource(Source):
             a = card.select_one("a.property-info, a[href*='casa.sapo.pt'], a[href^='/']")
             if not a or not a.get("href"):
                 continue
-            href = absolute(url, a["href"]) or ""
+            href = unwrap_redirect(absolute(url, a["href"]) or "")
             text = clean_text(card.get_text(" "))
             title_el = card.select_one(".property-type, .property-title, h2, h3")
             loc_el = card.select_one(".property-location, .property-address")
             price_el = card.select_one(".property-price-value, .property-price")
             img = card.find("img")
             image = (img.get("data-src") or img.get("src")) if img else None
-            source_id = card.get("id") or card.get("data-id") or href.rstrip("/").split("/")[-1]
+            source_id = card.get("id") or card.get("data-id") or listing_id_from_url(href)
             out.append(
                 Listing(
                     source=self.name,
@@ -81,3 +81,22 @@ class CasaSapoSource(Source):
                 )
             )
         return out
+
+
+_UUID_RE = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", re.I)
+
+
+def unwrap_redirect(href: str) -> str:
+    """Alguns links passam por um contador (gespub.casa.sapo.pt/...counter.aspx?...&l=URL). Devolve o URL final."""
+    if "counter.aspx" not in href and "gespub." not in href:
+        return href
+    qs = parse_qs(urlsplit(href).query)
+    target = (qs.get("l") or qs.get("url") or [None])[0]
+    return target.split("?g3pid")[0] if target else href
+
+
+def listing_id_from_url(href: str) -> str:
+    m = _UUID_RE.search(href)
+    if m:
+        return m.group(0).lower()
+    return href.split("?")[0].rstrip("/").split("/")[-1]

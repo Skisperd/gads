@@ -23,16 +23,12 @@ jobs:
             casaradar -c config.example.yaml debug-fetch "$s" --out dumps --show 8 || true
             echo "::endgroup::"
           done
-      - name: esquema do JSON do Imovirtual
+      - name: inspeção dos HTML obtidos
+        continue-on-error: true
         run: |
           python - <<'PY'
-          import glob, json, re
-          files = glob.glob("dumps/imovirtual-*.html")
-          if not files:
-              print("sem dump do imovirtual"); raise SystemExit
-          html = open(files[0], encoding="utf-8").read()
-          m = re.search(r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>', html, re.S)
-          data = json.loads(m.group(1))
+          import glob, json
+          from bs4 import BeautifulSoup
           def find(o, k):
               if isinstance(o, dict):
                   if k in o: return o[k]
@@ -43,40 +39,59 @@ jobs:
                   for v in o:
                       r = find(v, k)
                       if r is not None: return r
-          sa = find(data, "searchAds")
-          items = sa["items"]
-          print("searchAds keys:", sorted(k for k in sa if k != "items"))
-          print("pagination:", json.dumps(sa.get("pagination")))
-          print("item keys:", sorted(items[0].keys()))
-          for it in items[:2]:
-              print(json.dumps(it, ensure_ascii=False)[:2500])
-              print("---")
-          print("roomsNumber:", [it.get("roomsNumber") for it in items])
-          print("estate/transaction:", sorted({(it.get("estate"), it.get("transaction")) for it in items}))
+          for f in glob.glob("dumps/imovirtual-*.html"):
+              soup = BeautifulSoup(open(f, encoding="utf-8").read(), "lxml")
+              script = soup.find("script", id="__NEXT_DATA__")
+              sa = find(json.loads(script.string), "searchAds")
+              items = sa["items"]
+              print("::group::imovirtual JSON")
+              print("searchAds keys:", sorted(k for k in sa if k != "items"))
+              print("pagination:", json.dumps(sa.get("pagination")))
+              print("item keys:", sorted(items[0].keys()))
+              for it in items[:2]:
+                  print(json.dumps(it, ensure_ascii=False)[:2500]); print("---")
+              print("roomsNumber:", [it.get("roomsNumber") for it in items])
+              print("::endgroup::")
+          for f in glob.glob("dumps/casasapo-*.html"):
+              soup = BeautifulSoup(open(f, encoding="utf-8").read(), "lxml")
+              cards = soup.select("div.property")
+              print("::group::casasapo HTML")
+              print(len(cards), "cartões .property")
+              for c in cards[:2]:
+                  print(str(c)[:3500]); print("---")
+              pag = [a.get("href") for a in soup.find_all("a", href=True) if "pn=" in a.get("href", "")]
+              print("links de paginação:", pag[:5])
+              print("::endgroup::")
           PY
       - name: sondas HTTP aos outros sites
+        continue-on-error: true
         run: |
           UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
           probe() {
-            code=$(curl -sS -o /tmp/body -w '%{http_code}' -m 25 -L -A "$UA" \
-              -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' \
-              -H 'Accept-Language: pt-PT,pt;q=0.9,en;q=0.6' \
-              -H 'Sec-Ch-Ua: "Chromium";v="128", "Google Chrome";v="128", "Not;A=Brand";v="24"' \
-              -H 'Sec-Ch-Ua-Mobile: ?0' -H 'Sec-Ch-Ua-Platform: "Windows"' \
-              -H 'Sec-Fetch-Dest: document' -H 'Sec-Fetch-Mode: navigate' -H 'Sec-Fetch-Site: none' -H 'Sec-Fetch-User: ?1' \
-              -H 'Upgrade-Insecure-Requests: 1' "$1" || echo ERR)
-            echo "$code  $(wc -c </tmp/body) bytes  $1"
+            code=$(curl -sS -o /tmp/body -w '%{http_code} %{url_effective}' -m 25 -L -A "$UA"               -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'               -H 'Accept-Language: pt-PT,pt;q=0.9,en;q=0.6'               -H 'Sec-Ch-Ua: "Chromium";v="128", "Google Chrome";v="128", "Not;A=Brand";v="24"'               -H 'Sec-Ch-Ua-Mobile: ?0' -H 'Sec-Ch-Ua-Platform: "Windows"'               -H 'Sec-Fetch-Dest: document' -H 'Sec-Fetch-Mode: navigate' -H 'Sec-Fetch-Site: none' -H 'Sec-Fetch-User: ?1'               -H 'Upgrade-Insecure-Requests: 1' "$1" || echo ERR)
+            echo "$code  ($(wc -c </tmp/body) bytes)  <- $1"
             grep -o -i -m1 'cloudflare\|datadome\|captcha\|incapsula\|akamai\|perimeterx\|Too Many Requests\|Access Denied' /tmp/body | head -1 | sed 's/^/     marcador: /'
           }
-          probe https://casa.sapo.pt/
-          probe https://casa.sapo.pt/alugar-apartamentos/lisboa/
+          echo "::group::supercasa"
           probe https://supercasa.pt/
+          echo "-- links da homepage com arrendar/alugar/comprar:"
+          grep -o 'href="[^"]*"' /tmp/body | grep -i 'arrendar\|alugar\|comprar' | sort -u | head -40
           probe https://supercasa.pt/arrendar-apartamentos/lisboa
+          probe https://supercasa.pt/arrendar-casas/lisboa
+          probe https://supercasa.pt/alugar-apartamentos/lisboa
+          probe https://supercasa.pt/arrendar-apartamentos-lisboa
+          probe https://supercasa.pt/comprar-apartamentos/lisboa
+          echo "-- links da última página 200 com /lisboa:"
+          grep -o 'href="[^"]*lisboa[^"]*"' /tmp/body | sort -u | head -30
+          echo "::endgroup::"
+          echo "::group::olx"
           probe https://www.olx.pt/
           probe https://www.olx.pt/imoveis/
-          probe 'https://www.olx.pt/api/v1/offers/?offset=0&limit=5&category_id=1&query=t2'
+          probe 'https://www.olx.pt/api/v1/offers/?offset=0&limit=5&category_id=1'
+          echo "::endgroup::"
+          echo "::group::idealista"
           probe https://www.idealista.pt/
-          probe https://www.imovirtual.com/
+          echo "::endgroup::"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
