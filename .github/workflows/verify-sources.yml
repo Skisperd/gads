@@ -1,0 +1,31 @@
+# Verificação manual: obtém a 1ª página de cada fonte com o config de exemplo e mostra o que o parser extrai.
+# Útil para confirmar URLs e seletores sem precisar de rodar em casa. Os HTML ficam como artifact.
+name: verify-sources
+on:
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      - name: debug-fetch em todas as fontes
+        run: |
+          for s in imovirtual casasapo olx supercasa idealista; do
+            echo "::group::$s"
+            casaradar -c config.example.yaml debug-fetch "$s" --out dumps --show 8 || true
+            echo "::endgroup::"
+          done
+          echo "::group::head dos HTML"
+          for f in dumps/*.html; do echo "== $f ($(wc -c <"$f") bytes)"; head -c 600 "$f" | tr '\n' ' '; echo; done
+          echo "::endgroup::"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dumps
+          path: dumps/
+          if-no-files-found: ignore
