@@ -29,6 +29,13 @@ class Fetcher:
             "Accept-Language": "pt-PT,pt;q=0.9,en;q=0.6",
             "Cache-Control": "no-cache",
             "Upgrade-Insecure-Requests": "1",
+            "Sec-Ch-Ua": '"Chromium";v="128", "Google Chrome";v="128", "Not;A=Brand";v="24"',
+            "Sec-Ch-Ua-Mobile": "?0",
+            "Sec-Ch-Ua-Platform": '"Windows"',
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-User": "?1",
         }
         proxy = os.environ.get("CASARADAR_PROXY")
         self._client = httpx.Client(headers=headers, timeout=timeout, follow_redirects=True, proxy=proxy)
