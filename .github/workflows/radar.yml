@@ -1,0 +1,39 @@
+# Corre o radar a cada 30 minutos no GitHub Actions, sem precisar de servidor.
+# Segredos necessários (Settings > Secrets and variables > Actions):
+#   TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+# A base de dados SQLite é guardada entre execuções com actions/cache.
+name: radar
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+concurrency:
+  group: radar
+  cancel-in-progress: false
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      - name: Restaurar base de dados
+        uses: actions/cache/restore@v4
+        with:
+          path: data/casaradar.db
+          key: casaradar-db-${{ github.run_id }}
+          restore-keys: casaradar-db-
+      - name: Correr radar
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: casaradar run --once
+      - name: Guardar base de dados
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: data/casaradar.db
+          key: casaradar-db-${{ github.run_id }}

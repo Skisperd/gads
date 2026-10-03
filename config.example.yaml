@@ -1,0 +1,52 @@
+# casaradar — configuração de exemplo. Copie para config.yaml e edite.
+#
+# Cada pesquisa corre em várias fontes. Os filtros são aplicados LOCALMENTE a tudo o que
+# vier dos sites, por isso mesmo que um site ignore um parâmetro do URL, o resultado respeita
+# o que está aqui. Campos desconhecidos (ex. anúncio sem área) passam, salvo se strict: true.
+
+searches:
+  - name: "T2 arrendar Lisboa"
+    transaction: arrendar          # arrendar | comprar
+    property_type: apartamento     # apartamento | moradia | quarto | terreno | qualquer
+    # location é o "slug" da zona tal como aparece no URL de cada site. Pode ser um só valor
+    # ou um por fonte (Imovirtual usa distrito/concelho, os outros normalmente só o concelho).
+    location:
+      imovirtual: lisboa/lisboa
+      casasapo: lisboa
+      olx: lisboa
+      supercasa: lisboa
+      idealista: lisboa
+    typology: [T1, T2]             # vazio = qualquer
+    price_min: 800
+    price_max: 1500
+    area_min: 50
+    sources: [imovirtual, casasapo, olx, supercasa]   # acrescente idealista por sua conta e risco
+    max_pages: 3                   # páginas de resultados por fonte em cada ronda
+    exclude_words: [quarto, estudantes]  # ignora anúncios com estas palavras no título/local
+    # Se o URL automático de uma fonte não funcionar, cole aqui o URL da pesquisa feita no
+    # próprio site (com os filtros). O radar trata da paginação.
+    # urls:
+    #   olx: "https://www.olx.pt/imoveis/apartamentos/arrendamento/lisboa/?search[filter_float_price:to]=1500"
+
+  - name: "Moradia comprar Cascais"
+    transaction: comprar
+    property_type: moradia
+    location:
+      imovirtual: lisboa/cascais
+      casasapo: cascais
+      olx: cascais
+      supercasa: cascais
+    typology: [T3, T4]
+    price_max: 650000
+    sources: [imovirtual, casasapo, supercasa]
+
+telegram:
+  enabled: true
+  token_env: TELEGRAM_BOT_TOKEN     # nomes das variáveis de ambiente (ver .env.example)
+  chat_id_env: TELEGRAM_CHAT_ID
+  send_photos: true
+  summary_threshold: 12            # acima disto envia um resumo único em vez de uma mensagem por anúncio
+
+storage: data/casaradar.db
+request_delay: 2.0                 # segundos entre pedidos ao mesmo site (seja educado)
+timeout: 30
