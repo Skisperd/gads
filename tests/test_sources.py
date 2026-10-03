@@ -130,3 +130,18 @@ def test_casasapo_unwraps_counter_redirect():
     assert unwrap_redirect("https://casa.sapo.pt/x.html") == "https://casa.sapo.pt/x.html"
     assert listing_id_from_url("https://casa.sapo.pt/alugar-apartamento-t2-lisboa-estrela-2b4ca11d-1c9a-11f1-a463-060000000052.html") == "2b4ca11d-1c9a-11f1-a463-060000000052"
     assert listing_id_from_url("https://casa.sapo.pt/abc-100/") == "abc-100"
+
+
+def test_imovirtual_location_from_reverse_geocoding():
+    from casaradar.sources.imovirtual import _location_from_item
+    item = {"location": {"address": {"street": {"name": "1700-117 | Alvalade, Lisboa, Rua Conde de Sabugosa"}, "city": None},
+                         "reverseGeocoding": {"locations": [
+                             {"locationLevel": "district", "name": "Lisboa"},
+                             {"locationLevel": "council", "name": "Lisboa"},
+                             {"locationLevel": "parish", "name": "Alvalade"},
+                             {"locationLevel": "neighborhood", "name": "Alvalade"}]}}}
+    assert _location_from_item(item) == "Alvalade, Lisboa"
+    item["location"]["address"]["street"]["name"] = "Avenida Professor Gama Pinto"
+    item["location"]["reverseGeocoding"]["locations"][-1]["name"] = "Campo Grande"
+    assert _location_from_item(item) == "Avenida Professor Gama Pinto, Campo Grande, Alvalade, Lisboa"
+    assert _location_from_item({"location": {}}) is None

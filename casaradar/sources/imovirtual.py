@@ -113,8 +113,8 @@ class ImovirtualSource(Source):
             area_m2=area,
             location=location,
             image_url=image,
-            published_at=item.get("dateCreatedFirst") or item.get("dateCreated"),
-            raw={"id": ad_id},
+            published_at=item.get("createdAtFirst") or item.get("dateCreatedFirst") or item.get("dateCreated"),
+            raw={"id": ad_id, "private_owner": item.get("isPrivateOwner"), "agency": (item.get("agency") or {}).get("name") if isinstance(item.get("agency"), dict) else None},
         )
 
     # --- estratégia 2: HTML com data-cy -------------------------------------------------
@@ -145,24 +145,37 @@ class ImovirtualSource(Source):
 
 
 def _location_from_item(item: dict) -> str | None:
+    """Monta "Rua X, Bairro, Freguesia, Concelho" a partir de reverseGeocoding (preferido) ou address."""
     loc = item.get("location") or {}
     if not isinstance(loc, dict):
         return None
-    address = loc.get("address") or {}
-    parts = []
-    if isinstance(address, dict):
-        for k in ("street", "district", "city", "county", "province"):
-            node = address.get(k)
-            if isinstance(node, dict) and node.get("name"):
+    parts: list[str] = []
+    rg = loc.get("reverseGeocoding") or {}
+    locs = rg.get("locations") if isinstance(rg, dict) else None
+    if isinstance(locs, list) and locs:
+        by_level = {l.get("locationLevel"): l for l in locs if isinstance(l, dict)}
+        for level in ("neighborhood", "parish", "council"):
+            node = by_level.get(level)
+            if node and node.get("name"):
                 parts.append(str(node["name"]))
-            elif isinstance(node, str) and node:
-                parts.append(node)
-    if not parts:
-        rg = loc.get("reverseGeocoding") or {}
-        locs = rg.get("locations") if isinstance(rg, dict) else None
-        if isinstance(locs, list) and locs:
+        if not parts:
             last = locs[-1]
-            if isinstance(last, dict) and last.get("fullName"):
-                parts.append(str(last["fullName"]))
-    out = ", ".join(dict.fromkeys(parts))
+            if isinstance(last, dict):
+                parts.append(str(last.get("fullName") or last.get("name") or ""))
+    address = loc.get("address") or {}
+    if isinstance(address, dict):
+        street = address.get("street")
+        street_name = street.get("name") if isinstance(street, dict) else street
+        if isinstance(street_name, str) and street_name.strip() and not _POSTAL_RE.match(street_name.strip()):
+            parts.insert(0, street_name.strip())
+        if not parts:
+            for k in ("district", "city", "county", "province"):
+                node = address.get(k)
+                name = node.get("name") if isinstance(node, dict) else node
+                if isinstance(name, str) and name:
+                    parts.append(name)
+    out = ", ".join(dict.fromkeys(p for p in parts if p))
     return out or None
+
+
+_POSTAL_RE = re.compile(r"^\d{4}-\d{3}")
